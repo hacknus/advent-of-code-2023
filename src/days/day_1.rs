@@ -5,7 +5,7 @@ use crate::problem::Problem;
 pub struct DayOne {}
 
 /// this is nasty...
-fn is_spelled_digit(c: &str) -> Option<u32> {
+fn get_spelled_digit(c: &str) -> Option<u32> {
     if c.contains("one") {
         Some(1)
     } else if c.contains("two"){
@@ -71,7 +71,7 @@ impl Problem for DayOne {
                     first = digit;
                     break;
                 }
-                if let Some(digit) = is_spelled_digit( &slice) {
+                if let Some(digit) = get_spelled_digit( &slice) {
                     first = digit;
                     break;
                 }
@@ -86,7 +86,7 @@ impl Problem for DayOne {
                     last = digit;
                     break;
                 }
-                if let Some(digit) = is_spelled_digit( &slice.chars().rev().collect::<String>()) {
+                if let Some(digit) = get_spelled_digit( &slice.chars().rev().collect::<String>()) {
                     last = digit;
                     break;
                 }
