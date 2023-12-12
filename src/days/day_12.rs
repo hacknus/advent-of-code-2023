@@ -32,7 +32,8 @@ impl Spring {
         match s {
             "." => Self::Operational,
             "#" => Self::Damaged,
-            _ => Self::Unknown,
+            "?" => Self::Unknown,
+            _ => panic!("This cannot happen"),
         }
     }
 }
@@ -46,16 +47,16 @@ struct Node {
 }
 
 impl Node {
-    pub fn advance(&mut self, mut groups: &[u32], n: u32, line: &str) {
-        // we have reached the end of this line
-        println!("I am {:?} this is {} and str length {} with groups {:?}", self.value, self.ind, line.chars().count(), groups);
+    pub fn advance(&mut self, mut groups: &[u32], line: &str) {
+        // println!("I am {:?} this is {} and str length {} with groups {:?}", self.value, self.ind, line.chars().count(), groups);
 
-        if self.ind == n - 1 {
+        if self.ind == line.len() as u32 - 1 {
+            // we have reached the end of this line
             if !groups.is_empty() && self.group_length == groups[0] {
                 groups = &groups[1..];
             }
             if groups.is_empty() {
-                println!("valid!");
+                // println!("valid!");
                 self.is_valid = true;
             }
             return;
@@ -64,18 +65,11 @@ impl Node {
         let mut child_1 = None;
         let mut child_2 = None;
 
-
         // child is to be determined
         match self.value {
             Spring::Operational => {
                 if line.chars().nth(self.ind as usize + 1).unwrap() == '.' {
-                    if !groups.is_empty() && self.group_length != groups[0] && self.group_length != 0 {
-                        // this one is dead
-                        println!("dead because group killed by fixed .");
-                        return;
-                    } else if !groups.is_empty() && self.group_length == groups[0] {
-                        groups = &groups[1..];
-                    }
+                    // if next one is operational
                     child_1 = Some(Rc::new(RefCell::new(Node {
                         value: Spring::Operational,
                         ind: self.ind + 1,
@@ -84,24 +78,20 @@ impl Node {
                         is_valid: false,
                     })));
                 } else if line.chars().nth(self.ind as usize + 1).unwrap() == '#' {
+                    // if next one is damaged
                     if groups.is_empty() {
-                        println!("dead because group should be empty but exceeded by fixed #");
-                        return;
-                    }
-                    if self.group_length > groups[0] {
-                        // this one is dead
-                        println!("dead because group exceeded by fixed #");
+                        // println!("dead because group should be empty but exceeded by fixed #");
                         return;
                     }
                     child_2 = Some(Rc::new(RefCell::new(Node {
                         value: Spring::Damaged,
                         ind: self.ind + 1,
-                        group_length: self.group_length + 1,
+                        group_length: 1,
                         children: [None, None],
                         is_valid: false,
                     })));
                 } else {
-                    // we have reached the group length
+                    // if next one is unknown
                     child_1 = Some(Rc::new(RefCell::new(Node {
                         value: Spring::Operational,
                         ind: self.ind + 1,
@@ -110,10 +100,11 @@ impl Node {
                         is_valid: false,
                     })));
                     if !groups.is_empty() {
+                        // we have not reached the group length
                         child_2 = Some(Rc::new(RefCell::new(Node {
                             value: Spring::Damaged,
                             ind: self.ind + 1,
-                            group_length: self.group_length + 1,
+                            group_length: 1,
                             children: [None, None],
                             is_valid: false,
                         })));
@@ -122,13 +113,13 @@ impl Node {
             }
             Spring::Damaged => {
                 if line.chars().nth(self.ind as usize + 1).unwrap() == '.' {
-                    if !groups.is_empty() && self.group_length != groups[0] && self.group_length != 0 {
+                    // if next one is operational
+                    if self.group_length != groups[0] {
                         // this one is dead
-                        println!("dead because group killed by fixed .");
+                        // println!("dead because ongoing group killed by fixed .");
                         return;
-                    } else if !groups.is_empty() && self.group_length == groups[0] {
-                        groups = &groups[1..];
                     }
+                    groups = &groups[1..];
                     child_1 = Some(Rc::new(RefCell::new(Node {
                         value: Spring::Operational,
                         ind: self.ind + 1,
@@ -137,13 +128,10 @@ impl Node {
                         is_valid: false,
                     })));
                 } else if line.chars().nth(self.ind as usize + 1).unwrap() == '#' {
-                    if groups.is_empty() {
-                        println!("dead because group should be empty but exceeded by fixed #");
-                        return;
-                    }
-                    if self.group_length > groups[0] {
+                    // if next one is damaged
+                    if self.group_length >= groups[0] {
                         // this one is dead
-                        println!("dead because group exceeded by fixed #");
+                        // println!("dead because group exceeded by fixed #");
                         return;
                     }
                     child_2 = Some(Rc::new(RefCell::new(Node {
@@ -154,10 +142,7 @@ impl Node {
                         is_valid: false,
                     })));
                 } else {
-                    if groups.len() == 0 {
-                        // this one is invalid, too many damaged ones
-                        return;
-                    }
+                    // if next one is unknown
                     if self.group_length < groups[0] {
                         // still advancing with damaged group
                         child_2 = Some(Rc::new(RefCell::new(Node {
@@ -169,6 +154,7 @@ impl Node {
                         })));
                     } else if self.group_length == groups[0] {
                         // we have reached the group length
+                        groups = &groups[1..];
                         child_1 = Some(Rc::new(RefCell::new(Node {
                             value: Spring::Operational,
                             ind: self.ind + 1,
@@ -176,7 +162,6 @@ impl Node {
                             children: [None, None],
                             is_valid: false,
                         })));
-                        groups = &groups[1..];
                     }
                 }
             }
@@ -202,7 +187,7 @@ impl Node {
         self.children = [child_1, child_2];
         for child_option in self.children.iter_mut() {
             if let Some(child) = child_option {
-                child.borrow_mut().advance(groups, n, line)
+                child.borrow_mut().advance(groups, line)
             }
         }
     }
@@ -226,9 +211,7 @@ impl Node {
 impl Problem for DayTwelve {
     fn part_one(&self, input: &str) -> String {
         let contents = read_file_lines(input);
-        dbg!(&contents);
         let mut sum = 0;
-
 
         for line in contents {
             let parts = line.split(" ").map(|s| s.to_string()).collect::<Vec<String>>();
@@ -238,48 +221,26 @@ impl Problem for DayTwelve {
             let groups = groups.split(",").map(|u| u.parse::<u32>().unwrap()).collect::<Vec<u32>>();
 
 
-            let root_spring = Spring::from_str(&data.chars().nth(0).unwrap().to_string());
-            println!("starting with {}", data);
-            dbg!(&root_spring);
+            let root_spring = Spring::from_str(&data.chars().next().unwrap().to_string());
+            // println!("starting with {}", data);
+            // dbg!(&root_spring);
+            let group_length = match root_spring {
+                Spring::Damaged => { 1 }
+                _ => { 0 }
+            };
             let mut root = Node {
                 value: root_spring,
                 ind: 0,
-                group_length: 0,
+                group_length,
                 children: [None, None],
                 is_valid: false,
             };
-            root.advance(&groups, data.len() as u32, data);
+            root.advance(&groups, data);
 
             let walk = root.walk(0);
-            dbg!(&walk);
-
             sum += walk;
-            // dbg!(&line);
-            // for group in groups {
-            //     let regex = format!(r"(?:^|\.|\?)[?#]{{{}}}(?:\.|$)", group).as_str();
-            //     let re = Regex::new(regex).unwrap();
-            //     let  n = re.find_iter(data).count();
-            //     if n != 0 {
-            //         println!("found {n} possiblities for {group}")
-            //     }
-            // }
-
-            // let captured_unknowns = re_unkowns.find_iter(data).map(|f| (f.start(), f.end())).collect::<Vec<(usize, usize)>>();
-            // let captured_defects = re_defects.find_iter(data).map(|f| (f.start(), f.end())).collect::<Vec<(usize, usize)>>();
-            //
-            // let num_total_defects = groups.iter().sum::<u32>();
-            // let num_defects_to_fill = num_total_defects as usize - captured_defects.len();
-            // let num_total_unknowns = captured_unknowns.len();
-            //
-            // dbg!(&num_defects_to_fill);
-            // dbg!(&num_total_unknowns);
-            //
-            // for group in groups {
-            //     dbg!(&map_number_to_str(group));
-            // }
         }
 
-        // 6826 too low
         format!("{}", sum)
     }
 
