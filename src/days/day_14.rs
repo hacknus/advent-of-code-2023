@@ -1,3 +1,4 @@
+use std::hash::Hash;
 use itertools::Itertools;
 use crate::io::read_file_lines;
 use crate::problem::Problem;
@@ -73,26 +74,33 @@ impl Problem for DayFourteen {
             }
         }
 
-        for _cycle in 0..1000000000 {
-            if _cycle % 100000 == 0 {
-                println!("cycle: {} %", 100.0 / 1000000000.0 * _cycle as f32);
-                // sum all loads
-                let mut summed_load = 0;
-                let max_y = contents.len();
-                for row in map.rows() {
-                    let rounds: Vec<usize> = row
-                        .iter()
-                        .enumerate()
-                        .filter(|&(_, &x)| x == 2)
-                        .map(|(i, _)| i)
-                        .collect();
-                    for round_rock in rounds {
-                        summed_load += max_y - round_rock
-                    }
-                }
 
-                println!("loads: {summed_load}");
+        let mut history = vec![];
+        let mut pattern_start_ind = 0;
+
+        for _cycle in 0..1000000000 {
+
+            // sum all loads
+            let mut summed_load = 0;
+            let max_y = contents.len();
+            for row in map.rows() {
+                let rounds: Vec<usize> = row
+                    .iter()
+                    .enumerate()
+                    .filter(|&(_, &x)| x == 2)
+                    .map(|(i, _)| i)
+                    .collect();
+                for round_rock in rounds {
+                    summed_load += max_y - round_rock
+                }
             }
+
+            if history.contains(&map) {
+                pattern_start_ind = history.iter().position(|r| r == map).unwrap();
+                break;
+            }
+
+            history.push(map.clone());
 
             // roll to north
             for mut row in map.rows_mut() {
@@ -115,7 +123,6 @@ impl Problem for DayFourteen {
                 }
             }
 
-
             // roll to west
             for mut col in map.columns_mut() {
                 let mut cubes: Vec<isize> = col
@@ -133,27 +140,6 @@ impl Problem for DayFourteen {
                 for i in 0..cubes.len() - 1 {
                     let slice_to_sort = &mut col.slice_mut(s![cubes[i] + 1..cubes[i + 1]]);
                     let sorted_slice = slice_to_sort.iter().sorted().map(|i| *i).rev().collect_vec();
-                    slice_to_sort.assign(&Array::from_vec(sorted_slice));
-                }
-            }
-
-            // roll to east
-            for mut col in map.columns_mut() {
-                let mut cubes: Vec<isize> = col
-                    .iter()
-                    .enumerate()
-                    .filter(|&(_, &x)| x == 1)
-                    .map(|(i, _)| i as isize)
-                    .collect();
-                cubes.push(contents[0].len() as isize);
-
-                let mut cubes_total = vec![-1];
-                cubes_total.extend(cubes);
-                let cubes = cubes_total;
-
-                for i in 0..cubes.len() - 1 {
-                    let slice_to_sort = &mut col.slice_mut(s![cubes[i] + 1..cubes[i + 1]]);
-                    let sorted_slice = slice_to_sort.iter().sorted().map(|i| *i).collect_vec();
                     slice_to_sort.assign(&Array::from_vec(sorted_slice));
                 }
             }
@@ -178,7 +164,31 @@ impl Problem for DayFourteen {
                     slice_to_sort.assign(&Array::from_vec(sorted_slice));
                 }
             }
+
+            // roll to east
+            for mut col in map.columns_mut() {
+                let mut cubes: Vec<isize> = col
+                    .iter()
+                    .enumerate()
+                    .filter(|&(_, &x)| x == 1)
+                    .map(|(i, _)| i as isize)
+                    .collect();
+                cubes.push(contents[0].len() as isize);
+
+                let mut cubes_total = vec![-1];
+                cubes_total.extend(cubes);
+                let cubes = cubes_total;
+
+                for i in 0..cubes.len() - 1 {
+                    let slice_to_sort = &mut col.slice_mut(s![cubes[i] + 1..cubes[i + 1]]);
+                    let sorted_slice = slice_to_sort.iter().sorted().map(|i| *i).collect_vec();
+                    slice_to_sort.assign(&Array::from_vec(sorted_slice));
+                }
+            }
         }
+        let ind = (1000000000 - pattern_start_ind) % (history.len() - pattern_start_ind);
+
+        let map = &history[ind + pattern_start_ind];
 
         // sum all loads
         let mut summed_load = 0;
@@ -194,6 +204,8 @@ impl Problem for DayFourteen {
                 summed_load += max_y - round_rock
             }
         }
+        // 86248 too high
+
 
         format!("{}", summed_load)
     }
