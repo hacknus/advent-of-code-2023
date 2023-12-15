@@ -1,42 +1,59 @@
+use itertools::Itertools;
 use crate::io::read_file_lines;
 use crate::problem::Problem;
+use ndarray::{Array, Array2, s};
 
 pub struct DayFourteen {}
 
 impl Problem for DayFourteen {
     fn part_one(&self, input: &str) -> String {
         let contents = read_file_lines(input);
-        let mut round_rocks = vec![];
-        let mut cube_shaped_rocks = vec![];
+        let mut map = Array2::zeros((contents[0].len(), contents.len()));
+
         for (y, line) in contents.iter().enumerate() {
             for (x, c) in line.char_indices() {
                 match c {
-                    '#' => cube_shaped_rocks.push((x, y)),
-                    'O' => round_rocks.push((x, y)),
+                    '#' => map[[x, y]] = 1,
+                    'O' => map[[x, y]] = 2,
                     _ => {}
                 }
             }
         }
 
         // roll to north
-        for i in 0..round_rocks.len() {
-            let (x, mut y) = round_rocks[i];
-            loop {
-                if y > 0 && !cube_shaped_rocks.contains(&(x, y - 1)) && !round_rocks.contains(&(x, y - 1)) {
-                    y -= 1;
-                    round_rocks[i] = (x, y);
-                } else {
-                    break;
-                }
+        for mut row in map.rows_mut() {
+            let mut cubes: Vec<isize> = row
+                .iter()
+                .enumerate()
+                .filter(|&(_, &x)| x == 1)
+                .map(|(i, _)| i as isize)
+                .collect();
+            cubes.push(contents.len() as isize);
+
+            let mut cubes_total = vec![-1];
+            cubes_total.extend(cubes);
+            let cubes = cubes_total;
+
+            for i in 0..cubes.len() - 1 {
+                let slice_to_sort = &mut row.slice_mut(s![cubes[i] + 1..cubes[i + 1]]);
+                let sorted_slice = slice_to_sort.iter().sorted().map(|i| *i).rev().collect_vec();
+                slice_to_sort.assign(&Array::from_vec(sorted_slice));
             }
         }
-
 
         // sum all loads
         let mut summed_load = 0;
         let max_y = contents.len();
-        for round_rock in round_rocks {
-            summed_load += max_y - round_rock.1
+        for row in map.rows() {
+            let rounds: Vec<usize> = row
+                .iter()
+                .enumerate()
+                .filter(|&(_, &x)| x == 2)
+                .map(|(i, _)| i)
+                .collect();
+            for round_rock in rounds {
+                summed_load += max_y - round_rock
+            }
         }
 
         format!("{}", summed_load)
@@ -44,88 +61,138 @@ impl Problem for DayFourteen {
 
     fn part_two(&self, input: &str) -> String {
         let contents = read_file_lines(input);
-        let mut round_rocks = vec![];
-        let mut cube_shaped_rocks = vec![];
+        let mut map = Array2::zeros((contents[0].len(), contents.len()));
+
         for (y, line) in contents.iter().enumerate() {
             for (x, c) in line.char_indices() {
                 match c {
-                    '#' => cube_shaped_rocks.push((x, y)),
-                    'O' => round_rocks.push((x, y)),
+                    '#' => map[[x, y]] = 1,
+                    'O' => map[[x, y]] = 2,
                     _ => {}
                 }
             }
         }
 
-        for _cycle in 0..4 {
-            // if _cycle % 10000 == 0 {
-            //    println!("cycle: {_cycle}/1000000000");
-            // }
+        for _cycle in 0..1000000000 {
+            if _cycle % 100000 == 0 {
+                println!("cycle: {} %", 100.0 / 1000000000.0 * _cycle as f32);
+                // sum all loads
+                let mut summed_load = 0;
+                let max_y = contents.len();
+                for row in map.rows() {
+                    let rounds: Vec<usize> = row
+                        .iter()
+                        .enumerate()
+                        .filter(|&(_, &x)| x == 2)
+                        .map(|(i, _)| i)
+                        .collect();
+                    for round_rock in rounds {
+                        summed_load += max_y - round_rock
+                    }
+                }
+
+                println!("loads: {summed_load}");
+            }
 
             // roll to north
-            for i in 0..round_rocks.len() {
-                let (x, mut y) = round_rocks[i];
-                loop {
-                    if y > 0 && !cube_shaped_rocks.contains(&(x, y - 1)) && !round_rocks.contains(&(x, y - 1)) {
-                        y -= 1;
-                        round_rocks[i] = (x, y);
-                    } else {
-                        break;
-                    }
+            for mut row in map.rows_mut() {
+                let mut cubes: Vec<isize> = row
+                    .iter()
+                    .enumerate()
+                    .filter(|&(_, &x)| x == 1)
+                    .map(|(i, _)| i as isize)
+                    .collect();
+                cubes.push(contents.len() as isize);
+
+                let mut cubes_total = vec![-1];
+                cubes_total.extend(cubes);
+                let cubes = cubes_total;
+
+                for i in 0..cubes.len() - 1 {
+                    let slice_to_sort = &mut row.slice_mut(s![cubes[i] + 1..cubes[i + 1]]);
+                    let sorted_slice = slice_to_sort.iter().sorted().map(|i| *i).rev().collect_vec();
+                    slice_to_sort.assign(&Array::from_vec(sorted_slice));
                 }
             }
 
 
             // roll to west
-            for i in 0..round_rocks.len() {
-                let (mut x, y) = round_rocks[i];
-                loop {
-                    if x > 0 && !cube_shaped_rocks.contains(&(x - 1, y)) && !round_rocks.contains(&(x - 1, y)) {
-                        x -= 1;
-                        round_rocks[i] = (x, y);
-                    } else {
-                        break;
-                    }
+            for mut col in map.columns_mut() {
+                let mut cubes: Vec<isize> = col
+                    .iter()
+                    .enumerate()
+                    .filter(|&(_, &x)| x == 1)
+                    .map(|(i, _)| i as isize)
+                    .collect();
+                cubes.push(contents[0].len() as isize);
+
+                let mut cubes_total = vec![-1];
+                cubes_total.extend(cubes);
+                let cubes = cubes_total;
+
+                for i in 0..cubes.len() - 1 {
+                    let slice_to_sort = &mut col.slice_mut(s![cubes[i] + 1..cubes[i + 1]]);
+                    let sorted_slice = slice_to_sort.iter().sorted().map(|i| *i).rev().collect_vec();
+                    slice_to_sort.assign(&Array::from_vec(sorted_slice));
                 }
             }
 
             // roll to east
-            for i in (0..round_rocks.len()).rev() {
-                let (mut x, y) = round_rocks[i];
-                loop {
-                    if x < contents[0].len() - 1 && !cube_shaped_rocks.contains(&(x + 1, y)) && !round_rocks.contains(&(x + 1, y)) {
-                        x += 1;
-                        round_rocks[i] = (x, y);
-                    } else {
-                        break;
-                    }
+            for mut col in map.columns_mut() {
+                let mut cubes: Vec<isize> = col
+                    .iter()
+                    .enumerate()
+                    .filter(|&(_, &x)| x == 1)
+                    .map(|(i, _)| i as isize)
+                    .collect();
+                cubes.push(contents[0].len() as isize);
+
+                let mut cubes_total = vec![-1];
+                cubes_total.extend(cubes);
+                let cubes = cubes_total;
+
+                for i in 0..cubes.len() - 1 {
+                    let slice_to_sort = &mut col.slice_mut(s![cubes[i] + 1..cubes[i + 1]]);
+                    let sorted_slice = slice_to_sort.iter().sorted().map(|i| *i).collect_vec();
+                    slice_to_sort.assign(&Array::from_vec(sorted_slice));
                 }
             }
 
             // roll to south
-            for i in (0..round_rocks.len()).rev() {
-                let (x, mut y) = round_rocks[i];
-                loop {
-                    if y < contents.len() - 1 && !cube_shaped_rocks.contains(&(x, y + 1)) && !round_rocks.contains(&(x, y + 1)) {
-                        y += 1;
-                        round_rocks[i] = (x, y);
-                    } else {
-                        break;
-                    }
+            for mut row in map.rows_mut() {
+                let mut cubes: Vec<isize> = row
+                    .iter()
+                    .enumerate()
+                    .filter(|&(_, &x)| x == 1)
+                    .map(|(i, _)| i as isize)
+                    .collect();
+                cubes.push(contents.len() as isize);
+
+                let mut cubes_total = vec![-1];
+                cubes_total.extend(cubes);
+                let cubes = cubes_total;
+
+                for i in 0..cubes.len() - 1 {
+                    let slice_to_sort = &mut row.slice_mut(s![cubes[i] + 1..cubes[i + 1]]);
+                    let sorted_slice = slice_to_sort.iter().sorted().map(|i| *i).collect_vec();
+                    slice_to_sort.assign(&Array::from_vec(sorted_slice));
                 }
             }
-            // sum all loads
-            let mut summed_load = 0;
-            let max_y = contents.len();
-            for round_rock in round_rocks.iter() {
-                summed_load += max_y - round_rock.1
-            }
-            println!("summed loads: {}", summed_load);
         }
+
         // sum all loads
         let mut summed_load = 0;
         let max_y = contents.len();
-        for round_rock in round_rocks.iter() {
-            summed_load += max_y - round_rock.1
+        for row in map.rows() {
+            let rounds: Vec<usize> = row
+                .iter()
+                .enumerate()
+                .filter(|&(_, &x)| x == 2)
+                .map(|(i, _)| i)
+                .collect();
+            for round_rock in rounds {
+                summed_load += max_y - round_rock
+            }
         }
 
         format!("{}", summed_load)
