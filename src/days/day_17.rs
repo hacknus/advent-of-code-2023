@@ -6,26 +6,55 @@ use std::rc::Rc;
 
 pub struct DaySeventeen {}
 
+#[derive(Clone, Debug, PartialEq)]
+enum Direction {
+    Up,
+    Down,
+    Left,
+    Right,
+}
+
+impl Direction {
+    fn as_coordinates(&self) -> (isize, isize) {
+        match self {
+            Direction::Up => (0, -1),
+            Direction::Down => (0, 1),
+            Direction::Left => (-1, 0),
+            Direction::Right => (1, 0),
+        }
+    }
+
+    fn to_string(&self) -> String {
+        match self {
+            Direction::Up => "^".to_string(),
+            Direction::Down => "v".to_string(),
+            Direction::Left => "<".to_string(),
+            Direction::Right => ">".to_string(),
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 struct Node {
     parent: Option<Rc<RefCell<Node>>>,
     position: (isize, isize),
-    length: isize,
+    directions: Vec<Direction>,
     g: i32,
     h: i32,
     f: i32,
 }
 
-pub fn a_star(
+fn a_star(
     map: &Vec<Vec<i32>>,
+    initial_direction: Direction,
     start: (isize, isize),
     end: (isize, isize),
-) -> Option<Vec<(isize, isize)>> {
+) -> Option<Vec<((isize, isize), Direction)>> {
     // create start and end node
     let start_node = Node {
         parent: None,
         position: start,
-        length: 0,
+        directions: vec![initial_direction],
         g: 0,
         h: 0,
         f: 0,
@@ -33,7 +62,7 @@ pub fn a_star(
     let end_node = Node {
         parent: None,
         position: end,
-        length: 0,
+        directions: vec![],
         g: 0,
         h: 0,
         f: 0,
@@ -63,10 +92,16 @@ pub fn a_star(
 
         // Found the end
         if current_node.position == end_node.position {
-            let mut path = vec![current_node.position];
+            let mut path = vec![(
+                current_node.position,
+                current_node.directions.last().unwrap().clone(),
+            )];
             let mut current = current_node.clone();
             while let Some(parent) = current.parent {
-                path.push(parent.borrow().position);
+                path.push((
+                    parent.borrow().position,
+                    parent.borrow().directions.last().unwrap().clone(),
+                ));
                 current = parent.borrow().clone();
             }
             return Some(path);
@@ -75,32 +110,40 @@ pub fn a_star(
         // generate children
 
         let mut children = vec![];
-        for new_position in [(0, -1), (0, 1), (1, 0), (-1, 0)] {
+        for new_direction in [
+            Direction::Up,
+            Direction::Down,
+            Direction::Left,
+            Direction::Right,
+        ] {
             // Get node position
             let node_position = (
-                current_node.position.0 + new_position.0,
-                current_node.position.1 + new_position.1,
+                current_node.position.0 + new_direction.as_coordinates().0,
+                current_node.position.1 + new_direction.as_coordinates().1,
             );
 
             // Make sure within range
-            if node_position.0 > map[0].len() as isize - 1
+            if node_position.0 >= map[0].len() as isize
                 || node_position.0 < 0
-                || node_position.1 > map.len() as isize - 1
+                || node_position.1 >= map.len() as isize
                 || node_position.1 < 0
             {
                 continue;
             }
 
             // Make sure walkable terrain
-            if map[node_position.1 as usize][node_position.0 as usize] != 0 {
-                continue;
-            }
+            // if map[node_position.1 as usize][node_position.0 as usize] != 0 {
+            //     continue;
+            // }
+
+            let mut directions = current_node.directions.clone();
+            directions.push(new_direction);
 
             // Create new node
             let new_node = Node {
                 parent: Some(Rc::new(RefCell::new(current_node.clone()))),
                 position: node_position,
-                length: 0,
+                directions,
                 g: 0,
                 h: 0,
                 f: 0,
@@ -118,12 +161,24 @@ pub fn a_star(
                 }
             }
 
+            // logic for 3 moves in a row:
+            let n = child.directions.len();
+            if n >= 4 {
+                if child.directions[n - 1] == child.directions[n - 2]
+                    && child.directions[n - 1] == child.directions[n - 3]
+                    && child.directions[n - 1] == child.directions[n - 4]
+                {
+                    continue;
+                }
+            }
+
             // Create the f, g, and h values
-            // child.g = current_node.g
-            //     + map[current_node.position.0 as usize][current_node.position.1 as usize];
-            child.g = current_node.g + 1;
+            child.g =
+                current_node.g + 1 + map[child.position.1 as usize][child.position.0 as usize];
+            // child.g = current_node.g + 1;
             child.h = ((child.position.0 as i32 - end_node.position.0 as i32).pow(2))
                 + ((child.position.1 as i32 - end_node.position.1 as i32).pow(2));
+            child.h = 0;
             child.f = child.g + child.h;
 
             // Child is already in the open list
@@ -150,37 +205,31 @@ impl Problem for DaySeventeen {
             }
         }
 
-        let start = (0, 0);
+        let start = (1, 0);
         let end = (map[0].len() as isize - 1, map.len() as isize - 1);
+        let initial_direction = Direction::Right;
 
-        let map = vec![
-            vec![0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
-            vec![0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
-            vec![0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
-            vec![0, 1, 1, 1, 1, 0, 0, 0, 0, 0],
-            vec![0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
-            vec![0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
-            vec![0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
-            vec![0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
-            vec![0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
-            vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        ];
-        let end = (7, 6);
-
-        let path = a_star(&map, start, end).unwrap();
-
-        dbg!(&path);
+        let path = a_star(&map, initial_direction, start, end).unwrap();
         for (y, line) in map.iter().enumerate() {
-            for (x, c) in line.iter().enumerate() {
-                if path.contains(&(x as isize, y as isize)) {
-                    print!("#")
-                } else {
-                    print!(".")
+            for (x, local_heat_loss) in line.iter().enumerate() {
+                let mut b = false;
+                for ((x_p, y_p), dir) in path.iter() {
+                    if x == *x_p as usize && y == *y_p as usize {
+                        b = true;
+                        print!("{}", dir.to_string());
+                    }
+                }
+                if !b {
+                    print!("{local_heat_loss}");
                 }
             }
             println!();
         }
-        format!("{}", "Part one not yet implemented.")
+        let heat_loss = path
+            .iter()
+            .map(|((x, y), _)| map[*y as usize][*x as usize])
+            .sum::<i32>();
+        format!("{}", heat_loss)
     }
 
     fn part_two(&self, input: &str) -> String {
