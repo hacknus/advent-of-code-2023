@@ -25,6 +25,10 @@ struct Move {
 
 impl Move {
     pub fn propagate(&mut self, map: &Vec<Vec<String>>) {
+        if self.consecutive_moves > 3 {
+            // this one is too long
+            return;
+        }
         self.heat_loss = map[self.position.1][self.position.0]
             .parse::<u32>()
             .unwrap();
@@ -34,7 +38,31 @@ impl Move {
             return;
         }
         match self.dir {
-            Direction::Up => {}
+            Direction::Up => {
+                if self.position.0 > 0 {
+                    let mut position = self.position;
+                    position.0 -= 1;
+                    self.next_moves.push(Rc::new(RefCell::new(Move {
+                        dir: Direction::Left,
+                        position,
+                        terminated: false,
+                        heat_loss: 0,
+                        consecutive_moves: 0,
+                        next_moves: vec![],
+                    })))
+                } else {
+                    let mut position = self.position;
+                    position.0 -= 1;
+                    self.next_moves.push(Rc::new(RefCell::new(Move {
+                        dir: Direction::Left,
+                        position,
+                        terminated: false,
+                        heat_loss: 0,
+                        consecutive_moves: 0,
+                        next_moves: vec![],
+                    })))
+                }
+            }
             Direction::Down => {}
             Direction::Left => {}
             Direction::Right => {}
