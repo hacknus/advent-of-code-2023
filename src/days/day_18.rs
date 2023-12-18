@@ -73,9 +73,9 @@ impl Problem for DayEighteen {
         }
 
         let min_x = positions_to_draw.iter().map(|(p, _)| p.0).min().unwrap();
-        let max_x = positions_to_draw.iter().map(|(p, _)| p.0).max().unwrap();
+        let max_x = positions_to_draw.iter().map(|(p, _)| p.0).max().unwrap() + 1;
         let min_y = positions_to_draw.iter().map(|(p, _)| p.1).min().unwrap();
-        let max_y = positions_to_draw.iter().map(|(p, _)| p.1).max().unwrap();
+        let max_y = positions_to_draw.iter().map(|(p, _)| p.1).max().unwrap() + 1;
 
         let mut plot_hash = HashMap::new();
         for (p, c) in positions_to_draw {
@@ -90,7 +90,7 @@ impl Problem for DayEighteen {
                     let blue = (c & 0xFF) as u8;
                     print!("{}", "#".custom_color(CustomColor::new(red, green, blue)));
                 } else {
-                    print!(" ");
+                    print!(".");
                 }
             }
             println!();
