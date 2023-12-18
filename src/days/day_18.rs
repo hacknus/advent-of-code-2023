@@ -41,9 +41,8 @@ impl Direction {
 impl Problem for DayEighteen {
     fn part_one(&self, input: &str) -> String {
         let contents = read_file_lines(input);
-        let mut position = (0, 0);
         let mut position_2 = (0, 0);
-        let mut positions = vec![position];
+        let mut num_positions = 1;
         let mut positions_2 = vec![position_2];
 
         for line in contents.iter() {
@@ -54,11 +53,7 @@ impl Problem for DayEighteen {
             let direction = Direction::from_str(&parts[0]);
             let amount = parts[1].parse::<isize>().unwrap();
             let _color = parts[2].replace("(", "").replace(")", "");
-            for _ in 0..amount {
-                position.0 += direction.as_coordinates().0;
-                position.1 += direction.as_coordinates().1;
-                positions.push(position);
-            }
+            num_positions += amount;
             position_2.0 += direction.as_coordinates().0 * amount;
             position_2.1 += direction.as_coordinates().1 * amount;
             positions_2.push(position_2);
@@ -70,7 +65,7 @@ impl Problem for DayEighteen {
                 * (positions_2[i + 1].1 - positions_2[i].1);
         }
 
-        let straight_pieces = positions.len() - positions_2.len();
+        let straight_pieces = num_positions as usize - positions_2.len();
         let corners = positions_2.len() - 1;
 
         area /= 2;
@@ -88,9 +83,8 @@ impl Problem for DayEighteen {
 
     fn part_two(&self, input: &str) -> String {
         let contents = read_file_lines(input);
-        let mut position = (0, 0);
         let mut position_2 = (0, 0);
-        let mut positions = vec![position];
+        let mut num_positions = 1;
         let mut positions_2 = vec![position_2];
         for line in contents.iter() {
             let parts = line
@@ -103,11 +97,7 @@ impl Problem for DayEighteen {
             let direction = Direction::from_char(&color.chars().last().unwrap());
             let amount = color.chars().skip(1).take(5).collect::<String>();
             let amount = isize::from_str_radix(&amount, 16).unwrap();
-            for _ in 0..amount {
-                position.0 += direction.as_coordinates().0;
-                position.1 += direction.as_coordinates().1;
-                positions.push(position);
-            }
+            num_positions += amount;
             position_2.0 += direction.as_coordinates().0 * amount;
             position_2.1 += direction.as_coordinates().1 * amount;
             positions_2.push(position_2);
@@ -119,7 +109,7 @@ impl Problem for DayEighteen {
                 * (positions_2[i + 1].1 - positions_2[i].1);
         }
 
-        let straight_pieces = positions.len() - positions_2.len();
+        let straight_pieces = num_positions as usize - positions_2.len();
         let corners = positions_2.len() - 1;
 
         area /= 2;
