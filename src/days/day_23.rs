@@ -1,6 +1,6 @@
 use crate::io::read_file_lines;
 use crate::problem::Problem;
-use std::cell::RefCell;
+use std::cell::{Ref, RefCell};
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
@@ -45,34 +45,29 @@ impl Direction {
             Direction::Unknown => Self::Unknown,
         }
     }
+
+    fn perpendicular(&self) -> [Self; 2] {
+        match self {
+            Direction::Up => [Self::Right, Self::Left],
+            Direction::Down => [Self::Right, Self::Left],
+            Direction::Left => [Self::Up, Self::Down],
+            Direction::Right => [Self::Up, Self::Down],
+            Direction::Unknown => [Self::Unknown, Self::Unknown],
+        }
+    }
 }
 
 struct Node {
     dir: Direction,
     position: (isize, isize),
     terminated: bool,
-    path: HashSet<(isize, isize)>,
+    length: u32,
+    path: Vec<(isize, isize)>,
     children: Vec<Rc<RefCell<Node>>>,
 }
 
 impl Node {
-    pub fn propagate(
-        &mut self,
-        map: &Vec<Vec<String>>,
-        end: (isize, isize), // states: &mut HashMap<(usize, usize), Direction>,
-    ) {
-        // if let Some(dir) = states.get(&self.position) {
-        //     if self.dir == *dir {
-        //         // already been here
-        //         if energized_map[self.position.1][self.position.0] == 1 {
-        //             self.terminated = true;
-        //             return;
-        //         }
-        //     }
-        // }
-
-        // states.insert(self.position, self.dir);
-
+    pub fn propagate(&mut self, map: &Vec<Vec<String>>, end: (isize, isize)) {
         if self.position == end {
             self.terminated = true;
             return;
@@ -84,83 +79,105 @@ impl Node {
             Direction::Right,
             Direction::Up,
         ] {
-            let mut next_position = self.position;
-            let mut path = self.path.clone();
-            next_position.0 += dir.as_coordinates().0;
-            next_position.1 += dir.as_coordinates().1;
-            path.insert(next_position);
-            if next_position.0 < 0
-                || next_position.1 < 0
-                || next_position.0 >= map[0].len() as isize
-                || next_position.1 >= map.len() as isize
-                || dir == self.dir.opposite()
-                || self.path.contains(&next_position)
-            {
+            if dir == self.dir.opposite() {
                 continue;
             }
+            let mut next_position = self.position;
+            let mut child = None;
+            let mut counter = 0;
+            loop {
+                next_position.0 += dir.as_coordinates().0;
+                next_position.1 += dir.as_coordinates().1;
+                counter += 1;
+                if next_position.0 < 0
+                    || next_position.1 < 0
+                    || next_position.0 >= map[0].len() as isize
+                    || next_position.1 >= map.len() as isize
+                    || self.path.contains(&next_position)
+                {
+                    break;
+                }
 
-            if map[next_position.1 as usize][next_position.0 as usize].as_str() == "." {
-                self.children.push(Rc::new(RefCell::new(Node {
-                    dir,
-                    position: next_position,
-                    terminated: false,
-                    path,
-                    children: vec![],
-                })))
-            } else if map[next_position.1 as usize][next_position.0 as usize].as_str() == ">"
-                && dir == Direction::Right
-            {
-                self.children.push(Rc::new(RefCell::new(Node {
-                    dir,
-                    position: next_position,
-                    terminated: false,
-                    path,
-                    children: vec![],
-                })))
-            } else if map[next_position.1 as usize][next_position.0 as usize].as_str() == "<"
-                && dir == Direction::Left
-            {
-                self.children.push(Rc::new(RefCell::new(Node {
-                    dir,
-                    position: next_position,
-                    terminated: false,
-                    path,
-                    children: vec![],
-                })))
-            } else if map[next_position.1 as usize][next_position.0 as usize].as_str() == "^"
-                && dir == Direction::Up
-            {
-                self.children.push(Rc::new(RefCell::new(Node {
-                    dir,
-                    position: next_position,
-                    terminated: false,
-                    path,
-                    children: vec![],
-                })))
-            } else if map[next_position.1 as usize][next_position.0 as usize].as_str() == "v"
-                && dir == Direction::Down
-            {
-                self.children.push(Rc::new(RefCell::new(Node {
-                    dir,
-                    position: next_position,
-                    terminated: false,
-                    path,
-                    children: vec![],
-                })))
+                // check intersection
+                let mut look_out = next_position;
+                let mut wall_counter = 0;
+                for dir_2 in dir.perpendicular() {
+                    look_out.0 += dir_2.as_coordinates().0;
+                    look_out.1 += dir_2.as_coordinates().1;
+                    if look_out.0 < 0
+                        || look_out.1 < 0
+                        || look_out.0 >= map[0].len() as isize
+                        || look_out.1 >= map.len() as isize
+                    {
+                        continue;
+                    }
+                    if map[look_out.1 as usize][look_out.0 as usize].as_str() == "#" {
+                        wall_counter += 1;
+                    }
+                }
+
+                if map[next_position.1 as usize][next_position.0 as usize].as_str() == "."
+                    || (map[next_position.1 as usize][next_position.0 as usize].as_str() == ">"
+                        && dir == Direction::Right)
+                    || (map[next_position.1 as usize][next_position.0 as usize].as_str() == "<"
+                        && dir == Direction::Left)
+                    || (map[next_position.1 as usize][next_position.0 as usize].as_str() == "^"
+                        && dir == Direction::Up)
+                    || (map[next_position.1 as usize][next_position.0 as usize].as_str() == "v"
+                        && dir == Direction::Down)
+                {
+                    child = Some(Rc::new(RefCell::new(Node {
+                        dir,
+                        position: next_position,
+                        terminated: false,
+                        length: self.length + counter,
+                        path: vec![],
+                        children: vec![],
+                    })));
+                } else {
+                    // cannot go straight on any further
+                    break;
+                }
+                if wall_counter < 2 {
+                    break;
+                }
+            }
+            if let Some(c) = child {
+                self.children.push(c);
             }
         }
 
+        let intersection = if self.children.len() > 1 { true } else { false };
+
         for child in self.children.iter_mut() {
+            let mut path = self.path.clone();
+            if intersection {
+                path.push(self.position)
+            }
+            child.borrow_mut().path = path;
             child.borrow_mut().propagate(map, end);
         }
     }
 
     fn walk(&mut self, mut count: u32) -> u32 {
         if self.terminated {
-            return self.path.len() as u32;
+            return self.length;
         }
         for child in self.children.iter_mut() {
             count = count.max(child.borrow_mut().walk(count));
+        }
+        count
+    }
+
+    fn walk_and_extract(&mut self, mut count: Vec<(isize, isize)>) -> Vec<(isize, isize)> {
+        if self.terminated {
+            return self.path.clone();
+        }
+        for child in self.children.iter_mut() {
+            let child_count = child.borrow_mut().walk_and_extract(count.clone());
+            if count.len() < child_count.len() {
+                count = child_count
+            }
         }
         count
     }
@@ -180,7 +197,8 @@ impl Problem for DayTwentyThree {
             dir: Direction::Down,
             position: (1, 0),
             terminated: false,
-            path: HashSet::new(),
+            length: 0,
+            path: vec![],
             children: vec![],
         };
 
@@ -210,7 +228,8 @@ impl Problem for DayTwentyThree {
             dir: Direction::Down,
             position: (1, 0),
             terminated: false,
-            path: HashSet::new(),
+            length: 0,
+            path: vec![],
             children: vec![],
         };
 
@@ -218,7 +237,26 @@ impl Problem for DayTwentyThree {
 
         root.propagate(&map, end);
 
+        println!("propagated");
+
         let count = root.walk(0);
+        let count_walk = root.walk_and_extract(vec![]);
+        dbg!(&count_walk);
+
+        for (y, line) in contents.iter().enumerate() {
+            for (x, field) in line.char_indices() {
+                let field = match field {
+                    '#' => '#',
+                    _ => '.',
+                };
+                if count_walk.contains(&(x as isize, y as isize)) {
+                    print!("0");
+                } else {
+                    print!("{}", field);
+                }
+            }
+            println!("");
+        }
 
         format!("{}", count)
     }
